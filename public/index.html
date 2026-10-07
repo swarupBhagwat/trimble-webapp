@@ -24,6 +24,7 @@
   .chip .only:hover { background: #f3f4f6; color: var(--text); }
   .chip .n { color: var(--muted); font-variant-numeric: tabular-nums; }
   .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .dot.none { background: #fff; border: 2px solid #9ca3af; }
   .filters .sp { flex: 1; }
   iframe { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; min-height: 0; }
   .side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
@@ -142,6 +143,7 @@ const call = (url, body) => fetch(`${url}?project=${encodeURIComponent(PROJECT)}
   .then(r => r.json()).then(j => { if (j.error) throw new Error(j.error); return j; });
 const PHASES = [["Not started", "#cccccc"], ["Procured", "#ffd400"], ["Delivered", "#ff8800"], ["Installed", "#0088ff"], ["Completed", "#00cc00"]];
 const MAX = PHASES.length - 1;
+const dot = ph => el("span", { className: ph ? "dot" : "dot none", style: { background: ph ? PHASES[ph][1] : "" }, title: ph ? "" : "Model's own colour" });
 const badge = ph => el("span", { className: "badge", style: { background: PHASES[ph][1], color: ph < 2 ? "#222" : "#fff" } }, PHASES[ph][0]);
 
 let api, modelId, allIds = [], progress = {}, history = [], phaseByRuntime = new Map();
@@ -176,11 +178,11 @@ function renderAnalytics() {
     byType.set(cls, c);
   }
   const total = allIds.length || 1;
-  $("aPhases").replaceChildren(table(["Phase", "Elements", "Top types"], PHASES.map(([name, col], i) => {
+  $("aPhases").replaceChildren(table(["Phase", "Elements", "Top types"], PHASES.map(([name], i) => {
     const n = [...byPhase[i].values()].reduce((a, b) => a + b, 0);
     const tops = [...byPhase[i]].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, k]) => `${c} ${k}`).join(" · ");
     return el("tr", { className: "click", title: "Show these elements", onclick: () => { $("aPhase").value = i; $("aType").value = ""; renderList(); $("aCount").scrollIntoView({ behavior: "smooth", block: "start" }); } },
-      el("td", {}, el("span", { className: "row", style: { margin: 0 } }, el("span", { className: "dot", style: { background: col } }), name)),
+      el("td", {}, el("span", { className: "row", style: { margin: 0 } }, dot(i), name)),
       el("td", {}, `${n} · ${Math.round(n / total * 100)}%`), el("td", { className: "tops" }, tops || "—"));
   })));
   $("aTypes").replaceChildren(table(["Type", "Count", "Phases", "Progress"], [...byType].sort((a, b) => b[1].reduce((x, y) => x + y) - a[1].reduce((x, y) => x + y)).map(([cls, c]) => {
@@ -224,13 +226,13 @@ function renderSummary() {
   $("pct").textContent = Math.round(pct) + "%";
   $("totalTxt").textContent = `of ${allIds.length} elements`;
   $("stack").replaceChildren(...c.map((n, i) => el("div", { title: `${PHASES[i][0]}: ${n}`, style: { width: n / total * 100 + "%", background: PHASES[i][1] } })));
-  $("counts").replaceChildren(...PHASES.map(([name, col], i) => el("div", { className: "row" }, el("span", { className: "dot", style: { background: col } }), el("span", { className: "l" }, name), el("span", { className: "c" }, `${c[i]} · ${Math.round(c[i] / total * 100)}%`))));
+  $("counts").replaceChildren(...PHASES.map(([name], i) => el("div", { className: "row" }, dot(i), el("span", { className: "l" }, name), el("span", { className: "c" }, `${c[i]} · ${Math.round(c[i] / total * 100)}%`))));
   renderChips(c);
 }
 
 function renderChips(c = counts()) {
-  $("chips").replaceChildren(...PHASES.map(([name, col], i) => el("span", { className: "chip" + (shown.has(i) ? "" : " off") },
-    el("button", { title: "Show / hide", onclick: () => { shown.has(i) ? shown.delete(i) : shown.add(i); filterChanged(); } }, el("span", { className: "dot", style: { background: col } }), name, el("span", { className: "n" }, String(c[i]))),
+  $("chips").replaceChildren(...PHASES.map(([name], i) => el("span", { className: "chip" + (shown.has(i) ? "" : " off") },
+    el("button", { title: "Show / hide", onclick: () => { shown.has(i) ? shown.delete(i) : shown.add(i); filterChanged(); } }, dot(i), name, el("span", { className: "n" }, String(c[i]))),
     el("button", { className: "only", title: `Show only ${name}`, onclick: () => { shown.clear(); shown.add(i); filterChanged(); } }, "only"))));
 }
 
@@ -278,11 +280,11 @@ $("gType").onchange = $("gSelect").onclick = guard(async () => {
 
 function renderPhases() {
   const cur = progress[selGuids[0]]?.phase;
-  $("phases").replaceChildren(...PHASES.map(([name, col], i) => el("button", {
+  $("phases").replaceChildren(...PHASES.map(([name], i) => el("button", {
     className: (picked === i ? "on" : "") + (selGuids.length === 1 && cur === i ? " cur" : ""),
     disabled: !selIds.length,
     onclick: () => { picked = i; renderPhases(); },
-  }, el("span", { className: "dot", style: { background: col } }), name)));
+  }, dot(i), name)));
   $("save").disabled = !selIds.length || picked == null;
   $("save").textContent = selIds.length > 1 ? `Save update for ${selIds.length} elements` : "Save update";
 }
@@ -294,7 +296,7 @@ function renderHistory() {
   $("history").replaceChildren(
     selGuids.length > 1 ? el("div", { className: "muted", style: { marginBottom: "8px" } }, "Showing the first selected element.") : null,
     el("ul", { className: "timeline" }, rows.map((r, i) => el("li", {},
-      el("span", { className: "dot", style: { background: PHASES[r.phase][1] } }),
+      dot(r.phase),
       i > 0 && rows[i - 1].phase !== r.phase ? el("span", {}, PHASES[rows[i - 1].phase][0], " → ") : null, badge(r.phase),
       el("div", { className: "t" }, fmt(r.at)))).reverse()));
 }
