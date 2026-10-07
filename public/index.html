@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BD 4D Progress</title>
+<style>
+  :root { --navy: #14213d; --bg: #eef1f6; --card: #fff; --line: #dde2ea; --text: #1f2937; --muted: #6b7280; --accent: #1d4ed8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg); height: 100vh; display: grid; grid-template-rows: 52px minmax(0, 1fr); }
+  header { background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .3px; }
+  header .sub { font-size: 12px; opacity: .8; }
+  #status.err { color: #fca5a5; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 12px; padding: 12px; min-height: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .viewer { display: flex; flex-direction: column; padding: 10px; min-height: 0; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-bottom: 10px; }
+  .chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; font-size: 13px; }
+  .chip.off { opacity: .45; }
+  .chip button { border: 0; background: none; font: inherit; cursor: pointer; padding: 5px 10px; display: flex; align-items: center; gap: 7px; }
+  .chip .only { border-left: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 5px 8px; }
+  .chip .only:hover { background: #f3f4f6; color: var(--text); }
+  .chip .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .filters .sp { flex: 1; }
+  iframe { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; min-height: 0; }
+  .side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
+  .big { display: flex; align-items: baseline; gap: 8px; }
+  .big b { font-size: 32px; font-weight: 600; }
+  .stack { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: #e5e7eb; margin: 10px 0; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 13px; }
+  .row .l { flex: 1; }
+  .row .c { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); font-size: 12px; }
+  #selInfo b { display: block; font-size: 15px; }
+  .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+  .phases button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; font: inherit; border: 2px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; text-align: left; }
+  .phases button:last-child { grid-column: span 2; }
+  .phases button.on { border-color: var(--navy); font-weight: 600; background: #f5f7fb; }
+  .phases button.cur::after { content: "current"; margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 400; }
+  .phases button:disabled { opacity: .5; cursor: not-allowed; }
+  .save { width: 100%; padding: 11px; font: inherit; font-weight: 600; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+  .save:disabled { opacity: .45; cursor: not-allowed; }
+  #msg { min-height: 18px; margin-top: 8px; font-size: 13px; }
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 6px; }
+  .timeline li { position: relative; padding: 0 0 14px 20px; border-left: 2px solid var(--line); }
+  .timeline li:last-child { border-left-color: transparent; }
+  .timeline li .dot { position: absolute; left: -7px; top: 3px; border: 2px solid #fff; width: 12px; height: 12px; }
+  .timeline .t { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); flex: none; }
+  .tabs button { border: 0; background: none; padding: 8px 14px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--navy); font-weight: 600; border-color: var(--accent); }
+  .pane { display: flex; flex-direction: column; gap: 12px; }
+  .pane[hidden] { display: none; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+  .controls select, .controls input { flex: 1; min-width: 0; }
+  select, input, .btn { font: inherit; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: #fff; }
+  .btn { cursor: pointer; }
+  .group { background: #f7f9fc; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin: 10px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px; border-bottom: 1px solid #f0f2f6; vertical-align: middle; }
+  tr.click { cursor: pointer; }
+  tr.click:hover { background: #f5f7fb; }
+  .mini { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #e5e7eb; min-width: 70px; }
+  .list { max-height: 360px; overflow-y: auto; }
+  .tops { color: var(--muted); font-size: 12px; }
+  @media (max-width: 1000px) { body { height: auto; } main { grid-template-columns: 1fr; } .viewer { height: 70vh; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>BD 4D BIM &nbsp;|&nbsp; Progress Recording</h1>
+  <div class="sub"><span id="status">Loading...</span></div>
+</header>
+<main>
+  <div class="card viewer">
+    <div class="filters"><span class="muted">Filter by phase</span><span id="chips" style="display:contents"></span><span class="sp"></span><button class="chip" id="showAll" style="padding:5px 12px;cursor:pointer;font:inherit;font-size:13px">Show all</button></div>
+    <iframe id="viewer"></iframe>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2>Overall progress</h2>
+      <div class="big"><b id="pct">–</b><span class="muted" id="totalTxt"></span></div>
+      <div class="stack" id="stack"></div>
+      <div id="counts"></div>
+      <button class="btn" id="reset" style="margin-top:10px">Reset progress</button>
+    </div>
+
+    <div class="tabs" id="tabs"><button data-tab="record" class="on">Record progress</button><button data-tab="analytics">Analytics</button></div>
+
+    <div class="pane" id="tab-record">
+      <div class="card">
+        <h2>Record progress</h2>
+        <div id="selInfo" class="muted">Select one or more elements in the model, or pick a category below.</div>
+        <div class="group">
+          <div class="muted">Select a category</div>
+          <div class="controls"><select id="gType" title="Element type"></select><button class="btn" id="gSelect">Select</button></div>
+        </div>
+        <div class="phases" id="phases"></div>
+        <button class="save" id="save" disabled>Save update</button>
+        <div id="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Element history</h2>
+        <div id="history" class="muted">Select an element to see its updates.</div>
+      </div>
+    </div>
+
+    <div class="pane" id="tab-analytics" hidden>
+      <div class="card"><h2>Phase breakdown</h2><div id="aPhases"></div></div>
+      <div class="card"><h2>By element type</h2><div id="aTypes"></div></div>
+      <div class="card">
+        <h2>Elements</h2>
+        <div class="controls"><input id="aSearch" placeholder="Search name or type"></div>
+        <div class="controls"><select id="aPhase"></select><select id="aType"></select></div>
+        <div class="muted" id="aCount"></div>
+        <div class="list" id="aList"></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module">
+import * as WS from "https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api/+esm";
+
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) k === "style" ? Object.assign(n.style, v) : k in n ? (n[k] = v) : n.setAttribute(k, v);
+  n.append(...kids.flat().filter(x => x != null));
+  return n;
+};
+const status = (t, err) => { $("status").textContent = t; $("status").className = err ? "err" : ""; };
+const fmt = iso => new Date(iso).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const PROJECT = new URLSearchParams(location.search).get("project") || "";
+const call = (url, body) => fetch(`${url}?project=${encodeURIComponent(PROJECT)}`, body === undefined ? undefined : { method: "POST", body: JSON.stringify(body) })
+  .then(r => r.json()).then(j => { if (j.error) throw new Error(j.error); return j; });
+const PHASES = [["Not started", "#cccccc"], ["Procured", "#ffd400"], ["Delivered", "#ff8800"], ["Installed", "#0088ff"], ["Completed", "#00cc00"]];
+const MAX = PHASES.length - 1;
+const badge = ph => el("span", { className: "badge", style: { background: PHASES[ph][1], color: ph < 2 ? "#222" : "#fff" } }, PHASES[ph][0]);
+
+let api, modelId, allIds = [], containers = [], progress = {}, history = [], phaseByRuntime = new Map();
+let selIds = [], selGuids = [], picked = null, types = [];
+const meta = new Map();
+const phaseOf = id => phaseByRuntime.get(id) ?? 0;
+const table = (heads, rows) => el("table", {}, el("thead", {}, el("tr", {}, heads.map(h => el("th", {}, h)))), el("tbody", {}, rows));
+
+$("tabs").onclick = e => {
+  const tab = e.target.dataset.tab;
+  if (!tab) return;
+  [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  $("tab-record").hidden = tab !== "record";
+  $("tab-analytics").hidden = tab !== "analytics";
+};
+
+async function selectIds(ids, zoom) {
+  const sel = { modelObjectIds: [{ modelId, objectRuntimeIds: ids }] };
+  await api.viewer.setSelection(sel, "set");
+  await showSelection();
+  if (zoom) await api.viewer.setCamera(sel, { animationTime: 400 });
+}
+
+function renderAnalytics() {
+  const byPhase = PHASES.map(() => new Map());
+  const byType = new Map();
+  for (const id of allIds) {
+    const ph = phaseOf(id), cls = meta.get(id)?.cls || "?";
+    byPhase[ph].set(cls, (byPhase[ph].get(cls) ?? 0) + 1);
+    const c = byType.get(cls) ?? PHASES.map(() => 0);
+    c[ph]++;
+    byType.set(cls, c);
+  }
+  const total = allIds.length || 1;
+  $("aPhases").replaceChildren(table(["Phase", "Elements", "Top types"], PHASES.map(([name, col], i) => {
+    const n = [...byPhase[i].values()].reduce((a, b) => a + b, 0);
+    const tops = [...byPhase[i]].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, k]) => `${c} ${k}`).join(" · ");
+    return el("tr", { className: "click", title: "Show these elements", onclick: () => { $("aPhase").value = i; $("aType").value = ""; renderList(); $("aCount").scrollIntoView({ behavior: "smooth", block: "start" }); } },
+      el("td", {}, el("span", { className: "row", style: { margin: 0 } }, el("span", { className: "dot", style: { background: col } }), name)),
+      el("td", {}, `${n} · ${Math.round(n / total * 100)}%`), el("td", { className: "tops" }, tops || "—"));
+  })));
+  $("aTypes").replaceChildren(table(["Type", "Count", "Phases", "Progress"], [...byType].sort((a, b) => b[1].reduce((x, y) => x + y) - a[1].reduce((x, y) => x + y)).map(([cls, c]) => {
+    const n = c.reduce((a, b) => a + b, 0);
+    return el("tr", { className: "click", title: "Show these elements", onclick: () => { $("aType").value = cls; $("aPhase").value = ""; renderList(); $("aCount").scrollIntoView({ behavior: "smooth", block: "start" }); } },
+      el("td", {}, cls), el("td", {}, String(n)),
+      el("td", {}, el("div", { className: "mini" }, c.map((k, i) => el("div", { title: `${PHASES[i][0]}: ${k}`, style: { width: k / n * 100 + "%", background: PHASES[i][1] } })))),
+      el("td", {}, Math.round(c.reduce((s, k, i) => s + k * i / MAX, 0) / n * 100) + "%"));
+  })));
+  renderList();
+}
+
+function renderList() {
+  const q = $("aSearch").value.trim().toLowerCase(), ph = $("aPhase").value, cls = $("aType").value;
+  const rows = allIds.filter(id => {
+    const m = meta.get(id);
+    return (ph === "" || phaseOf(id) === Number(ph)) && (!cls || m?.cls === cls) && (!q || m?.name.toLowerCase().includes(q) || m?.cls.toLowerCase().includes(q));
+  });
+  $("aCount").textContent = `${rows.length} elements${rows.length > 300 ? " (showing 300)" : ""}`;
+  $("aList").replaceChildren(table(["Element", "Type", "Phase", "Updated"], rows.slice(0, 300).map(id => {
+    const m = meta.get(id), rec = progress[m?.guid];
+    return el("tr", { className: "click", title: "Select in model", onclick: guard(() => selectIds([id], true)) },
+      el("td", {}, m?.name || "—"), el("td", {}, m?.cls || "—"), el("td", {}, badge(phaseOf(id))), el("td", { className: "tops" }, rec ? fmt(rec.at) : "—"));
+  })));
+}
+$("aSearch").oninput = renderList;
+$("aPhase").onchange = renderList;
+$("aType").onchange = renderList;
+const shown = new Set(PHASES.map((_, i) => i));
+const guard = fn => async () => { try { await fn(); } catch (e) { status("ERROR " + (e.message || e), true); } };
+
+function counts() {
+  const c = PHASES.map(() => 0);
+  allIds.forEach(id => c[phaseByRuntime.get(id) ?? 0]++);
+  return c;
+}
+
+function renderSummary() {
+  const c = counts(), total = allIds.length || 1;
+  const pct = c.reduce((s, n, i) => s + n * i / MAX, 0) / total * 100;
+  $("pct").textContent = Math.round(pct) + "%";
+  $("totalTxt").textContent = `of ${allIds.length} elements`;
+  $("stack").replaceChildren(...c.map((n, i) => el("div", { title: `${PHASES[i][0]}: ${n}`, style: { width: n / total * 100 + "%", background: PHASES[i][1] } })));
+  $("counts").replaceChildren(...PHASES.map(([name, col], i) => el("div", { className: "row" }, el("span", { className: "dot", style: { background: col } }), el("span", { className: "l" }, name), el("span", { className: "c" }, `${c[i]} · ${Math.round(c[i] / total * 100)}%`))));
+  renderChips(c);
+}
+
+function renderChips(c = counts()) {
+  $("chips").replaceChildren(...PHASES.map(([name, col], i) => el("span", { className: "chip" + (shown.has(i) ? "" : " off") },
+    el("button", { title: "Show / hide", onclick: () => { shown.has(i) ? shown.delete(i) : shown.add(i); filterChanged(); } }, el("span", { className: "dot", style: { background: col } }), name, el("span", { className: "n" }, String(c[i]))),
+    el("button", { className: "only", title: `Show only ${name}`, onclick: () => { shown.clear(); shown.add(i); filterChanged(); } }, "only"))));
+}
+
+function filterChanged() {
+  renderChips();
+  applyFilter().catch(e => status("ERROR " + e.message, true));
+}
+$("showAll").onclick = () => { PHASES.forEach((_, i) => shown.add(i)); filterChanged(); };
+
+async function colour() {
+  const guids = Object.keys(progress);
+  phaseByRuntime = new Map();
+  // the site carries its own terrain geometry and can't be hidden without hiding its subtree, so ghost containers instead (alpha 0 renders black)
+  await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: containers }] }, { color: { r: 200, g: 200, b: 200, a: 10 } });
+  await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: allIds }] }, { color: PHASES[0][1] });
+  if (guids.length) {
+    const runtime = await api.viewer.convertToObjectRuntimeIds(modelId, guids);
+    runtime.forEach((id, i) => id != null && phaseByRuntime.set(id, progress[guids[i]].phase));
+    for (let ph = 1; ph < PHASES.length; ph++) {
+      const ids = runtime.filter((id, i) => id != null && progress[guids[i]].phase === ph);
+      if (ids.length) await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, { color: PHASES[ph][1] });
+    }
+  }
+  await applyFilter();
+}
+
+async function applyFilter() {
+  await api.viewer.setObjectState(undefined, { visible: "reset" });
+  if (shown.size === PHASES.length) return;
+  // hiding a wall also hides the doors in its openings, so isolate what's shown instead of hiding the rest
+  const ids = allIds.filter(id => shown.has(phaseOf(id)));
+  await api.viewer.isolateEntities([{ modelId, entityIds: ids }]);
+  if (ids.length) await api.viewer.setCamera({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, { animationTime: 400 });
+}
+
+async function refresh() {
+  [progress, history] = await Promise.all([call("/api/progress"), call("/api/history")]);
+  await colour();
+  renderSummary();
+  renderAnalytics();
+}
+
+$("gType").onchange = $("gSelect").onclick = guard(async () => {
+  const cls = $("gType").value;
+  if (cls) await selectIds(allIds.filter(id => meta.get(id)?.cls === cls), false);
+});
+
+function renderPhases() {
+  const cur = progress[selGuids[0]]?.phase;
+  $("phases").replaceChildren(...PHASES.map(([name, col], i) => el("button", {
+    className: (picked === i ? "on" : "") + (selGuids.length === 1 && cur === i ? " cur" : ""),
+    disabled: !selIds.length,
+    onclick: () => { picked = i; renderPhases(); },
+  }, el("span", { className: "dot", style: { background: col } }), name)));
+  $("save").disabled = !selIds.length || picked == null;
+  $("save").textContent = selIds.length > 1 ? `Save update for ${selIds.length} elements` : "Save update";
+}
+
+function renderHistory() {
+  if (!selGuids.length) return $("history").replaceChildren("Select an element to see its updates.");
+  const rows = history.filter(r => r.guid === selGuids[0]).sort((a, b) => a.at.localeCompare(b.at));
+  if (!rows.length) return $("history").replaceChildren("No updates recorded for this element yet.");
+  $("history").replaceChildren(
+    selGuids.length > 1 ? el("div", { className: "muted", style: { marginBottom: "8px" } }, "Showing the first selected element.") : null,
+    el("ul", { className: "timeline" }, rows.map((r, i) => el("li", {},
+      el("span", { className: "dot", style: { background: PHASES[r.phase][1] } }),
+      i > 0 && rows[i - 1].phase !== r.phase ? el("span", {}, PHASES[rows[i - 1].phase][0], " → ") : null, badge(r.phase),
+      el("div", { className: "t" }, fmt(r.at)))).reverse()));
+}
+
+async function showSelection() {
+  const sel = await api.viewer.getSelection();
+  selIds = sel.filter(s => s.modelId === modelId).flatMap(s => s.objectRuntimeIds ?? []);
+  selGuids = selIds.length ? await api.viewer.convertToObjectIds(modelId, selIds) : [];
+  $("msg").textContent = "";
+  if (!selIds.length) {
+    picked = null;
+    $("selInfo").replaceChildren("Select one or more elements in the model.");
+  } else {
+    const [p] = await api.viewer.getObjectProperties(modelId, [selIds[0]]);
+    const name = typeof p?.product?.name === "string" ? p.product.name : "";
+    const cls = typeof p?.class === "string" ? p.class : p?.class?.name || "Element";
+    const rec = progress[selGuids[0]];
+    const mix = PHASES.map(() => 0);
+    selGuids.forEach(g => mix[progress[g]?.phase ?? 0]++);
+    const uniform = mix.filter(Boolean).length === 1;
+    picked = uniform ? mix.findIndex(Boolean) : null;
+    $("selInfo").replaceChildren(el("b", {}, name || cls), el("div", {}, [cls, selIds.length > 1 ? `+ ${selIds.length - 1} more selected` : ""].filter(Boolean).join(" · ")),
+      selIds.length > 1
+        ? el("div", {}, "Current: ", ...mix.flatMap((n, i) => (n ? [badge(i), ` ${n} `] : [])))
+        : el("div", {}, rec ? ["Current: ", badge(rec.phase), " · ", fmt(rec.at)] : "No progress recorded yet."));
+  }
+  renderPhases();
+  renderHistory();
+}
+
+$("save").onclick = guard(async () => {
+  $("save").disabled = true;
+  await call("/api/progress", selGuids.map(guid => ({ guid, phase: picked })));
+  const name = PHASES[picked][0];
+  await refresh();
+  await showSelection();
+  $("msg").textContent = `Saved: ${name}`;
+  $("msg").style.color = "#15803d";
+});
+
+$("reset").onclick = guard(async () => {
+  if (!confirm("Reset all recorded progress for this model? This cannot be undone.")) return;
+  await call("/api/reset", {});
+  await refresh();
+  await showSelection();
+});
+
+async function waitForObjects() {
+  for (let i = 0; i < 60; i++) {
+    const all = await api.viewer.getObjects();
+    if (all[0]?.objects.length) return all;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  throw new Error("model did not load in 60 s");
+}
+
+// getObjects also returns spatial containers (project, storeys, spaces, openings); hiding a container hides its whole subtree
+const SPATIAL = /^ifc(project|site|building|buildingstorey|space|openingelement)$/i;
+async function buildingElements(ids) {
+  const keep = [];
+  for (let i = 0; i < ids.length; i += 250) {
+    const batch = ids.slice(i, i + 250);
+    const [props, guids] = await Promise.all([api.viewer.getObjectProperties(modelId, batch), api.viewer.convertToObjectIds(modelId, batch)]);
+    const byId = new Map(props.map(p => [Number(p.id), p]));
+    batch.forEach((id, j) => {
+      const p = byId.get(Number(id));
+      const cls = typeof p?.class === "string" ? p.class : p?.class?.name || "Unclassified";
+      if (SPATIAL.test(cls)) return void containers.push(id);
+      keep.push(id);
+      meta.set(id, { cls, name: typeof p?.product?.name === "string" ? p.product.name : "", guid: guids[j] });
+    });
+    status(`Reading elements ${Math.min(i + 250, ids.length)}/${ids.length}`);
+  }
+  return keep;
+}
+
+renderPhases();
+renderChips(PHASES.map(() => 0));
+$("aPhase").append(el("option", { value: "" }, "All phases"), ...PHASES.map(([n], i) => el("option", { value: i }, n)));
+try {
+  const session = await call("/api/trimble-session");
+  $("viewer").src = WS.getConnectEmbedUrl();
+  api = await WS.connect($("viewer"), ev => { if (/selection/i.test(ev)) showSelection().catch(() => {}); }, 30000);
+  await api.embed.setTokens({ shareToken: session.shareToken });
+  await api.embed.init3DViewer({ projectId: session.projectId, ...(session.modelId && { modelId: session.modelId }) });
+  status("Waiting for model...");
+  const all = await waitForObjects();
+  modelId = session.modelId || all[0].modelId;
+  allIds = await buildingElements(all[0].objects.map(o => o.id));
+  const typeCount = new Map();
+  for (const id of allIds) typeCount.set(meta.get(id).cls, (typeCount.get(meta.get(id).cls) ?? 0) + 1);
+  types = [...typeCount].sort((a, b) => b[1] - a[1]);
+  $("gType").replaceChildren(el("option", { value: "" }, "Choose a category…"), ...types.map(([c, n]) => el("option", { value: c }, `${c} (${n})`)));
+  $("aType").replaceChildren(el("option", { value: "" }, "All types"), ...types.map(([c]) => el("option", { value: c }, c)));
+  await refresh();
+  status("Model loaded");
+} catch (e) {
+  status("ERROR " + (e.message || e), true);
+}
+</script>
+</body>
+</html>

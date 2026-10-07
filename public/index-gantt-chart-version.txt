@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BD 4D BIM</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt/dist/frappe-gantt.css">
+<style>
+  :root { --navy: #14213d; --bg: #eef1f6; --card: #fff; --line: #dde2ea; --text: #1f2937; --muted: #6b7280; --accent: #1d4ed8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg); height: 100vh; display: grid; grid-template-rows: 52px minmax(0, 1fr) auto; }
+  header { background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .3px; }
+  header .sub { font-size: 12px; opacity: .8; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(560px, 46vw); gap: 12px; padding: 12px; min-height: 0; }
+  .left, .right { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  .tabs button { border: 0; background: none; padding: 8px 16px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--navy); font-weight: 600; border-color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 24px; font-weight: 600; }
+  .kpi span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .donutbox { display: flex; align-items: center; gap: 18px; }
+  .donut { width: 130px; height: 130px; border-radius: 50%; position: relative; flex: none; }
+  .donut::after { content: ""; position: absolute; inset: 26px; background: #fff; border-radius: 50%; }
+  .donut b { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; font-size: 20px; }
+  .legend { flex: 1; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .row .n { flex: 1; }
+  .row .c { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stack { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #e5e7eb; min-width: 120px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px 8px; border-bottom: 1px solid #f0f2f6; vertical-align: middle; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  select, input, button.btn { font: inherit; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: #fff; }
+  button.btn { cursor: pointer; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.danger { color: #b91c1c; border-color: #fecaca; }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+  .controls { display: flex; gap: 8px; margin: 6px 0; flex-wrap: wrap; align-items: center; }
+  .controls select, .controls input { flex: 1; min-width: 0; }
+  .viewer { height: max(440px, 62vh); flex: none; display: flex; flex-direction: column; padding: 8px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 8px; }
+  .chip { border: 1px solid var(--line); border-radius: 14px; padding: 2px 10px; font-size: 12px; cursor: pointer; background: #fff; display: flex; align-items: center; gap: 6px; }
+  .chip.off { opacity: .4; }
+  iframe { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 6px; background: #fff; min-height: 0; }
+  .scroll { max-height: 520px; overflow-y: auto; }
+  #status.err { color: #fca5a5; }
+  #projectSel { margin-left: auto; margin-right: 24px; background: #fff; }
+  #selInfo { white-space: pre-line; }
+  .gantt .bar-wrapper[class*="crit-"] .bar { stroke: #dc2626; stroke-width: 2.5; }
+  .gantt .bar-wrapper[class*="-todo"] .bar { fill: #e5e7eb; }
+  .gantt .bar-wrapper[class*="-todo"] .bar-progress { fill: #9ca3af; }
+  .gantt .bar-wrapper[class*="-active"] .bar { fill: #bfdbfe; }
+  .gantt .bar-wrapper[class*="-active"] .bar-progress { fill: #2563eb; }
+  .gantt .bar-wrapper[class*="-late"] .bar { fill: #fed7aa; }
+  .gantt .bar-wrapper[class*="-late"] .bar-progress { fill: #ea580c; }
+  .gantt .bar-wrapper[class*="-done"] .bar { fill: #bbf7d0; }
+  .gantt .bar-wrapper[class*="-done"] .bar-progress { fill: #16a34a; }
+  svg text { font: 11px "Segoe UI", sans-serif; fill: #6b7280; }
+  .panel { height: 380px; display: flex; flex-direction: column; background: var(--card); border-top: 1px solid var(--line); min-height: 0; }
+  .panel.max { height: calc(100vh - 110px); }
+  .grip { height: 6px; flex: none; cursor: ns-resize; background: var(--line); }
+  .grip:hover { background: var(--accent); }
+  .ptool { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .ptool > b { color: var(--navy); }
+  .ptool .btn, .ptool select { padding: 5px 9px; }
+  .ptool .sp { flex: 1; }
+  .ptool .sep { width: 1px; height: 22px; background: var(--line); }
+  .ptool input[type=range] { width: 160px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 5px 10px; font: inherit; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .pbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+  .pmain { overflow: auto; padding: 8px 12px; }
+  .editor { border-left: 1px solid var(--line); padding: 12px; overflow: auto; }
+  .editor h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .editor label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+  .editor input, .editor select { width: 100%; }
+  #tList tbody tr { cursor: pointer; }
+  #tList tbody tr:hover { background: #f5f7fb; }
+  #tList tbody tr.sel { background: #e8efff; }
+  @media (max-width: 1100px) { body { height: auto; } main { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } .pbody { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>BD 4D BIM &nbsp;|&nbsp; Construction Progress</h1>
+  <select id="projectSel" title="Project / model"></select>
+  <div class="sub"><span id="status">Loading...</span> &nbsp;&middot;&nbsp; <span id="clock"></span></div>
+</header>
+<main>
+  <div class="left">
+    <div class="tabs" id="tabs"></div>
+
+    <section id="tab-dashboard">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2" style="margin-top:12px">
+        <div class="card"><h2>Phase distribution</h2><div class="donutbox"><div class="donut" id="donut"><b id="donutPct"></b></div><div class="legend" id="legend"></div></div></div>
+        <div class="card"><h2>Progress trend</h2><div id="trend"></div></div>
+      </div>
+      <div class="grid2" style="margin-top:12px">
+        <div class="card"><h2>By element type</h2><div id="classes"></div></div>
+        <div class="card"><h2>Recent activity</h2><div id="recent"></div></div>
+      </div>
+    </section>
+
+    <section id="tab-elements" hidden>
+      <div class="card">
+        <h2>Elements with recorded progress</h2>
+        <div class="controls"><input id="search" placeholder="Search name, type or GUID"><select id="phaseFilter"></select></div>
+        <div class="muted" id="elCount"></div>
+        <div class="scroll" id="elements"></div>
+      </div>
+    </section>
+
+    <section id="tab-activity" hidden>
+      <div class="card"><h2>Activity log</h2><div class="scroll" id="activity"></div></div>
+    </section>
+  </div>
+
+  <div class="right">
+    <div class="card viewer">
+      <div class="chips" id="chips"></div>
+      <iframe id="viewer"></iframe>
+    </div>
+
+    <div class="card">
+      <h2>Selected element</h2>
+      <div id="selInfo" class="muted">Select an element in the model.</div>
+      <div class="controls">
+        <select id="phase"></select>
+        <button class="btn primary" id="applySel" disabled>Apply to selection</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Management</h2>
+      <div class="muted">Apply a phase to every element of one type</div>
+      <div class="controls"><select id="classSel"></select><select id="classPhase"></select><button class="btn" id="applyClass" disabled>Apply</button></div>
+      <div class="controls">
+        <button class="btn" id="export">Export CSV</button>
+        <button class="btn" id="seed">Seed demo data</button>
+        <button class="btn danger" id="clear">Clear all progress</button>
+      </div>
+    </div>
+  </div>
+</main>
+<section class="panel" id="schedPanel">
+  <div class="grip" id="grip" title="Drag to resize"></div>
+  <div class="ptool">
+    <b>Schedule</b>
+    <span class="muted" id="cpmInfo"></span>
+    <span class="sp"></span>
+    <div class="seg" id="viewModes"></div>
+    <button class="btn" id="tToday">Today</button>
+    <span class="sep"></span>
+    <button class="btn" id="tPlay">▶ Simulate</button>
+    <select id="tSpeed" title="Simulation speed"><option value="1">1 day/step</option><option value="3" selected>3 days/step</option><option value="7">7 days/step</option></select>
+    <input type="range" id="tSlide" min="0" max="0" value="0" title="Simulation date">
+    <span id="tDate" class="muted"></span>
+    <button class="btn" id="tReset">Reset view</button>
+    <span class="sep"></span>
+    <button class="btn primary" id="tNew">+ Task</button>
+    <button class="btn" id="tAuto" title="One task per element type, from the whole model">Auto-generate</button>
+    <button class="btn" id="tApply" title="Move every task to its CPM earliest start">Apply CPM dates</button>
+    <button class="btn" id="tMax" title="Maximise / restore">⤢</button>
+  </div>
+  <div class="pbody">
+    <div class="pmain"><div id="gantt"></div><div id="tList" style="margin-top:10px"></div></div>
+    <aside class="editor">
+      <h2 id="eTitle">New task</h2>
+      <label>Name<input id="tName" placeholder="e.g. Ground floor slabs"></label>
+      <div class="controls" style="margin:0"><label style="flex:1">Start<input id="tStart" type="date"></label><label style="flex:1">End<input id="tEnd" type="date"></label></div>
+      <label>Depends on (Ctrl-click for several)<select id="tDeps" multiple size="4"></select></label>
+      <label>Linked elements<select id="tLink"></select></label>
+      <div class="controls"><button class="btn primary" id="tSave">Add task</button><button class="btn danger" id="tDel" hidden>Delete</button><button class="btn" id="tCancel">Clear</button></div>
+    </aside>
+  </div>
+</section>
+<script type="module">
+import * as WS from "https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api/+esm";
+import Gantt from "https://cdn.jsdelivr.net/npm/frappe-gantt/+esm";
+
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) k === "style" ? Object.assign(n.style, v) : k in n ? (n[k] = v) : n.setAttribute(k, v);
+  n.append(...kids.flat().filter(x => x != null));
+  return n;
+};
+const status = (t, err) => { $("status").textContent = t; $("status").className = err ? "err" : ""; };
+const fmt = iso => new Date(iso).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const PROJECT = new URLSearchParams(location.search).get("project") || "default";
+const call = (url, body) => fetch(`${url}?project=${encodeURIComponent(PROJECT)}`, body === undefined ? undefined : { method: "POST", body: JSON.stringify(body) })
+  .then(r => r.json()).then(j => { if (j.error) throw new Error(j.error); return j; });
+const PHASES = [["Not started", "#cccccc"], ["Procured", "#ffd400"], ["Delivered", "#ff8800"], ["Installed", "#0088ff"], ["Completed", "#00cc00"]];
+const MAX = PHASES.length - 1;
+
+let api, modelId, total = 0, allIds = [], progress = {}, history = [], meta = null, guidMeta = new Map();
+let selIds = [], phaseByRuntime = new Map(), schedule = [], classes = [], editId = null, viewMode = "Week";
+const shown = new Set(PHASES.map((_, i) => i));
+
+const badge = ph => el("span", { className: "badge", style: { background: PHASES[ph][1], color: ph < 2 ? "#222" : "#fff" } }, PHASES[ph][0]);
+const stackBar = (counts, base) => el("div", { className: "stack" }, counts.map((c, i) => el("div", { title: `${PHASES[i][0]}: ${c}`, style: { width: c / base * 100 + "%", background: PHASES[i][1] } })));
+const table = (heads, rows) => el("table", {}, el("thead", {}, el("tr", {}, heads.map(h => el("th", {}, h)))), el("tbody", {}, rows.map(r => el("tr", {}, r.map(c => el("td", {}, c))))));
+const nameOf = guid => guidMeta.get(guid)?.name || guidMeta.get(guid)?.cls || guid.slice(0, 8) + "…";
+
+for (const sel of [$("phase"), $("classPhase")]) sel.append(...PHASES.map(([n], i) => el("option", { value: i }, n)));
+$("phaseFilter").append(el("option", { value: "" }, "All phases"), ...PHASES.map(([n], i) => el("option", { value: i }, n)));
+setInterval(() => { $("clock").textContent = new Date().toLocaleString([], { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }, 1000);
+
+const TABS = [["dashboard", "Dashboard"], ["elements", "Elements"], ["activity", "Activity"]];
+function showTab(name) {
+  for (const [id] of TABS) $("tab-" + id).hidden = id !== name;
+  [...$("tabs").children].forEach((b, i) => b.classList.toggle("on", TABS[i][0] === name));
+}
+$("tabs").append(...TABS.map(([id, label]) => el("button", { onclick: () => showTab(id) }, label)));
+showTab("dashboard");
+
+$("chips").append(...PHASES.map(([n, c], i) => {
+  const chip = el("button", { className: "chip" }, el("span", { className: "dot", style: { background: c } }), n);
+  chip.onclick = () => { shown.has(i) ? shown.delete(i) : shown.add(i); chip.classList.toggle("off", !shown.has(i)); applyFilter().catch(e => status("ERROR " + e.message, true)); };
+  return chip;
+}));
+
+function stats() {
+  const counts = PHASES.map(() => 0);
+  const recs = Object.values(progress);
+  recs.forEach(r => counts[r.phase]++);
+  counts[0] += Math.max(0, total - recs.length);
+  const base = Math.max(total, recs.length) || 1;
+  const weighted = recs.reduce((s, r) => s + r.phase / MAX, 0) / base;
+  return { counts, base, weighted, recs };
+}
+
+function renderKpis({ counts, base, weighted, recs }) {
+  const day = recs.filter(r => Date.now() - new Date(r.at) < 864e5).length;
+  const items = [[Math.round(weighted * 100) + "%", "Overall progress"], [counts[4], "Completed"], [counts[1] + counts[2] + counts[3], "In progress"], [counts[0], "Not started"], [day, "Updated last 24 h"]];
+  $("kpis").replaceChildren(...items.map(([v, l]) => el("div", { className: "kpi" }, el("b", {}, String(v)), el("span", {}, l))));
+}
+
+function renderDonut({ counts, base, weighted }) {
+  let acc = 0;
+  const stops = PHASES.map(([, c], i) => { const from = acc / base * 100; acc += counts[i]; return `${c} ${from}% ${acc / base * 100}%`; });
+  $("donut").style.background = `conic-gradient(${stops.join(",")})`;
+  $("donutPct").textContent = Math.round(weighted * 100) + "%";
+  $("legend").replaceChildren(...PHASES.map(([n, c], i) => el("div", { className: "row" }, el("span", { className: "dot", style: { background: c } }), el("span", { className: "n" }, n), el("span", { className: "c" }, `${counts[i]} · ${Math.round(counts[i] / base * 100)}%`))));
+}
+
+function renderTrend({ base }) {
+  const rows = [...history].sort((a, b) => a.at.localeCompare(b.at));
+  const state = new Map(), byDay = new Map();
+  let sum = 0;
+  for (const r of rows) {
+    sum += (r.phase - (state.get(r.guid) ?? 0)) / MAX;
+    state.set(r.guid, r.phase);
+    byDay.set(new Date(r.at).toLocaleDateString([], { day: "2-digit", month: "short" }), sum / base * 100);
+  }
+  const pts = [...byDay];
+  if (!pts.length) return $("trend").replaceChildren(el("div", { className: "muted" }, "No history yet."));
+  const W = 520, H = 170, l = 34, r = 10, t = 10, b = 24;
+  const x = i => pts.length === 1 ? W / 2 : l + i * (W - l - r) / (pts.length - 1);
+  const y = v => t + (100 - v) / 100 * (H - t - b);
+  const grid = [0, 50, 100].map(v => `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="#e5e7eb"/><text x="${l - 6}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`).join("");
+  const line = pts.length > 1 ? `<polyline fill="none" stroke="#1d4ed8" stroke-width="2" points="${pts.map(([, v], i) => `${x(i)},${y(v)}`).join(" ")}"/>` : "";
+  const dots = pts.map(([d, v], i) => `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="#1d4ed8"><title>${d}: ${v.toFixed(1)}%</title></circle>`).join("");
+  const labels = pts.map(([d], i) => (pts.length <= 7 || i % Math.ceil(pts.length / 7) === 0) ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${d}</text>` : "").join("");
+  $("trend").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${grid}${line}${dots}${labels}</svg>`;
+}
+
+function renderClasses() {
+  if (!meta) return $("classes").replaceChildren(el("div", { className: "muted" }, "Reading element data…"));
+  const map = new Map();
+  for (const { guid, cls } of meta.values()) {
+    const c = map.get(cls) ?? PHASES.map(() => 0);
+    c[progress[guid]?.phase ?? 0]++;
+    map.set(cls, c);
+  }
+  const rows = [...map].map(([cls, c]) => ({ cls, c, n: c.reduce((a, b) => a + b, 0), pct: c.reduce((s, v, i) => s + v * i / MAX, 0) })).sort((a, b) => b.n - a.n).slice(0, 12);
+  $("classes").replaceChildren(table(["Type", "Count", "Phases", "Progress"],
+    rows.map(r => [r.cls, el("span", {}, String(r.n)), stackBar(r.c, r.n), Math.round(r.pct / r.n * 100) + "%"])));
+}
+
+function renderRecent() {
+  const rows = Object.entries(progress).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 6);
+  $("recent").replaceChildren(rows.length ? table(["Element", "Phase", "When"], rows.map(([g, r]) => [nameOf(g), badge(r.phase), fmt(r.at)])) : el("div", { className: "muted" }, "No updates yet."));
+}
+
+function renderElements() {
+  const q = $("search").value.trim().toLowerCase(), ph = $("phaseFilter").value;
+  const rows = Object.entries(progress).filter(([g, r]) => {
+    const m = guidMeta.get(g);
+    return (ph === "" || r.phase === Number(ph)) && (!q || [g, m?.name, m?.cls].some(s => s?.toLowerCase().includes(q)));
+  }).sort((a, b) => b[1].at.localeCompare(a[1].at));
+  $("elCount").textContent = `${rows.length} elements${rows.length > 200 ? " (showing 200)" : ""}`;
+  $("elements").replaceChildren(table(["Element", "Type", "GUID", "Phase", "Recorded"],
+    rows.slice(0, 200).map(([g, r]) => [guidMeta.get(g)?.name || "—", guidMeta.get(g)?.cls || "—", g, badge(r.phase), fmt(r.at)])));
+}
+
+function renderActivity() {
+  const rows = [...history].reverse().slice(0, 200);
+  $("activity").replaceChildren(rows.length ? table(["Time", "Element", "Phase"], rows.map(r => [fmt(r.at), nameOf(r.guid), badge(r.phase)])) : el("div", { className: "muted" }, "No activity yet."));
+}
+
+function render() {
+  const s = stats();
+  renderKpis(s); renderDonut(s); renderTrend(s); renderClasses(); renderRecent(); renderElements(); renderActivity(); renderSchedule();
+}
+
+const day = iso => Date.parse(iso) / 864e5;
+const isoDay = d => d.toLocaleDateString("sv");
+const taskProgress = t => t.guids.length ? Math.round(t.guids.reduce((s, g) => s + (progress[g]?.phase ?? 0) / MAX, 0) / t.guids.length * 100) : 0;
+const minStart = () => schedule.reduce((m, t) => (t.start < m ? t.start : m), schedule[0].start);
+
+async function saveSchedule(list) {
+  await call("/api/schedule", list);
+  schedule = list;
+  simState.clear();
+  taskRt.clear();
+  renderSchedule();
+  openEditor(schedule.find(t => t.id === editId));
+}
+
+const dependents = id => {
+  const out = new Set([id]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const t of schedule) if (!out.has(t.id) && (t.deps || []).some(d => out.has(d))) { out.add(t.id); grew = true; }
+  }
+  return out;
+};
+
+function openEditor(t) {
+  editId = t?.id ?? null;
+  $("eTitle").textContent = t ? "Edit task" : "New task";
+  $("tSave").textContent = t ? "Save changes" : "Add task";
+  $("tDel").hidden = !t;
+  $("tName").value = t?.name ?? "";
+  $("tStart").value = t?.start ?? "";
+  $("tEnd").value = t?.end ?? "";
+  // a task can't depend on itself or on anything downstream of it (no loops)
+  const banned = t ? dependents(t.id) : new Set();
+  $("tDeps").replaceChildren(...schedule.filter(x => !banned.has(x.id)).map(x => el("option", { value: x.id, selected: (t?.deps || []).includes(x.id) }, x.name)));
+  $("tLink").replaceChildren(...[t && el("option", { value: "keep" }, `Keep ${t.guids.length} linked elements`), el("option", { value: "sel" }, "Current model selection"),
+    ...classes.map(c => el("option", { value: "cls:" + c }, "All " + c))].filter(Boolean));
+  [...$("tList").querySelectorAll("tbody tr")].forEach((tr, i) => tr.classList.toggle("sel", schedule[i]?.id === editId));
+}
+
+const pickTask = t => { openEditor(t); guard(() => selectTask(t))(); };
+
+async function selectTask(t) {
+  const ids = (await api.viewer.convertToObjectRuntimeIds(modelId, t.guids)).filter(id => id != null);
+  const sel = { modelObjectIds: [{ modelId, objectRuntimeIds: ids }] };
+  await api.viewer.setSelection(sel, "set");
+  await api.viewer.setCamera(sel, { animationTime: 500 });
+}
+
+const STATUS = { todo: ["Not started", "#9ca3af"], active: ["In progress", "#2563eb"], late: ["Behind", "#ea580c"], done: ["Complete", "#16a34a"] };
+function taskStatus(t) {
+  const p = taskProgress(t), len = day(t.end) - day(t.start) + 1, today = Math.floor(Date.now() / 864e5);
+  const planned = Math.round(Math.min(1, Math.max(0, (today - day(t.start) + 1) / len)) * 100);
+  const status = p >= 100 ? "done" : planned > 0 && (today > day(t.end) || p < planned - 10) ? "late" : p > 0 ? "active" : "todo";
+  return { p, planned, status };
+}
+
+const utcDay = d => new Date(d * 864e5).toISOString().slice(0, 10);
+
+// finish-to-start, no lags; a task's own start acts as "start no earlier than"
+function cpm() {
+  const t0 = day(minStart());
+  const nodes = new Map(schedule.map(t => [t.id, { t, d: day(t.end) - day(t.start) + 1, preds: (t.deps || []).filter(p => schedule.some(x => x.id === p)) }]));
+  const order = [], seen = new Set();
+  const visit = n => { if (seen.has(n.t.id)) return; seen.add(n.t.id); n.preds.forEach(p => visit(nodes.get(p))); order.push(n); };
+  nodes.forEach(visit);
+  for (const n of order) {
+    n.es = Math.max(day(n.t.start) - t0, ...n.preds.map(p => nodes.get(p).ef));
+    n.ef = n.es + n.d;
+  }
+  const end = Math.max(...order.map(n => n.ef));
+  order.forEach(n => (n.lf = end));
+  for (const n of [...order].reverse()) {
+    n.ls = n.lf - n.d;
+    n.float = n.ls - n.es;
+    n.preds.forEach(p => { const q = nodes.get(p); q.lf = Math.min(q.lf, n.ls); });
+  }
+  return { nodes, t0, end };
+}
+
+const VIEW_MODES = ["Day", "Week", "Month"];
+$("viewModes").append(...VIEW_MODES.map(m => el("button", { onclick: () => { viewMode = m; renderSchedule(true); } }, m)));
+
+function renderSchedule(toToday = false) {
+  [...$("viewModes").children].forEach((b, i) => b.classList.toggle("on", VIEW_MODES[i] === viewMode));
+  const scroll = $("gantt").querySelector(".gantt-container")?.scrollLeft;
+  $("gantt").replaceChildren();
+  $("tSlide").disabled = !schedule.length;
+  if (!schedule.length) { $("tList").replaceChildren(el("div", { className: "muted" }, "No tasks yet. Click + Task or Auto-generate.")); $("cpmInfo").textContent = ""; return; }
+  const { nodes, end } = cpm();
+  const critical = [...nodes.values()].filter(n => n.float === 0).sort((a, b) => a.es - b.es);
+  $("cpmInfo").textContent = `${end} days · critical path: ${critical.map(n => n.t.name).join(" → ")}`;
+  $("tList").replaceChildren(table(["Task", "Start", "End", "Depends on", "Float (d)", "Planned", "Actual", "Status"], schedule.map(t => [t.name, t.start, t.end,
+    (t.deps || []).map(p => schedule.find(x => x.id === p)?.name).filter(Boolean).join(", ") || "—",
+    el("b", { style: { color: nodes.get(t.id).float === 0 ? "#dc2626" : "" } }, String(nodes.get(t.id).float)),
+    taskStatus(t).planned + "%", taskStatus(t).p + "%",
+    el("span", { className: "badge", style: { background: STATUS[taskStatus(t).status][1], color: "#fff" } }, STATUS[taskStatus(t).status][0])])));
+  [...$("tList").querySelectorAll("tbody tr")].forEach((tr, i) => { tr.onclick = () => pickTask(schedule[i]); tr.classList.toggle("sel", schedule[i].id === editId); });
+  new Gantt($("gantt"), schedule.map(t => ({ id: t.id, name: `${t.name} · ${taskStatus(t).p}%`, start: t.start, end: t.end, progress: taskStatus(t).p,
+    dependencies: (t.deps || []).join(","), custom_class: (nodes.get(t.id).float === 0 ? "crit-" : "norm-") + taskStatus(t).status })), {
+    view_mode: viewMode,
+    on_click: task => pickTask(schedule.find(t => t.id === task.id)),
+    on_date_change: (task, start, end) => guard(() => saveSchedule(schedule.map(t => t.id === task.id ? { ...t, start: isoDay(start), end: isoDay(end) } : t)))(),
+  });
+  // keep the user's horizontal position across re-renders (progress refresh, edits)
+  const box = $("gantt").querySelector(".gantt-container");
+  if (box && scroll != null && !toToday) requestAnimationFrame(() => (box.scrollLeft = scroll));
+  $("tSlide").max = Math.max(...schedule.map(t => day(t.end))) - day(minStart());
+}
+
+$("tToday").onclick = () => renderSchedule(true);
+$("tMax").onclick = () => { $("schedPanel").style.height = ""; $("schedPanel").classList.toggle("max"); };
+$("grip").onpointerdown = e => {
+  const y0 = e.clientY, h0 = $("schedPanel").offsetHeight;
+  $("grip").setPointerCapture(e.pointerId);
+  $("grip").onpointermove = m => { $("schedPanel").style.height = Math.max(160, Math.min(innerHeight - 120, h0 + y0 - m.clientY)) + "px"; };
+  $("grip").onpointerup = () => { $("grip").onpointermove = null; };
+};
+
+const SIM_STYLE = { hidden: { visible: false }, active: { visible: true, color: "#ff8800" }, done: { visible: true, color: "#00cc00" } };
+const taskRt = new Map();
+let simState = new Map();
+async function runtimeOf(t) {
+  if (!taskRt.has(t.id)) taskRt.set(t.id, (await api.viewer.convertToObjectRuntimeIds(modelId, t.guids)).filter(id => id != null));
+  return taskRt.get(t.id);
+}
+
+async function colourByDate() {
+  const d = day(minStart()) + Number($("tSlide").value);
+  $("tDate").textContent = utcDay(d);
+  if (!simState.size) await api.viewer.setObjectState(undefined, { color: "#cccccc", visible: "reset" });
+  for (const t of schedule) {
+    const next = d < day(t.start) ? "hidden" : d > day(t.end) ? "done" : "active";
+    if (simState.get(t.id) === next) continue;
+    simState.set(t.id, next);
+    const ids = await runtimeOf(t);
+    if (ids.length) await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, SIM_STYLE[next]);
+  }
+}
+
+let simTimer = null;
+function stopSim() {
+  clearInterval(simTimer);
+  simTimer = null;
+  $("tPlay").textContent = "▶ Simulate";
+}
+$("tPlay").onclick = () => {
+  const s = $("tSlide");
+  if (simTimer) return stopSim();
+  if (s.disabled) return;
+  if (Number(s.value) >= Number(s.max)) s.value = 0;
+  $("tPlay").textContent = "⏸ Pause";
+  let busy = false;
+  simTimer = setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      s.value = Number(s.value) + Number($("tSpeed").value);
+      await colourByDate();
+      if (Number(s.value) >= Number(s.max)) stopSim();
+    } catch (e) {
+      stopSim();
+      status("ERROR " + e.message, true);
+    } finally {
+      busy = false;
+    }
+  }, 700);
+};
+$("tSlide").oninput = () => colourByDate().catch(e => status("ERROR " + e.message, true));
+$("tReset").onclick = () => { stopSim(); $("tDate").textContent = ""; colour().catch(e => status("ERROR " + e.message, true)); };
+$("search").oninput = renderElements;
+$("phaseFilter").onchange = renderElements;
+
+async function colour() {
+  const guids = Object.keys(progress);
+  simState.clear();
+  phaseByRuntime = new Map();
+  await api.viewer.setObjectState(undefined, { color: "#cccccc" });
+  if (guids.length) {
+    const runtime = await api.viewer.convertToObjectRuntimeIds(modelId, guids);
+    runtime.forEach((id, i) => id != null && phaseByRuntime.set(id, progress[guids[i]].phase));
+    for (let ph = 1; ph < PHASES.length; ph++) {
+      const ids = runtime.filter((id, i) => id != null && progress[guids[i]].phase === ph);
+      if (ids.length) await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, { color: PHASES[ph][1] });
+    }
+  }
+  await applyFilter();
+}
+
+async function applyFilter() {
+  await api.viewer.setObjectState(undefined, { visible: "reset" });
+  if (shown.size === PHASES.length) return;
+  const hidden = PHASES.map(() => []);
+  allIds.forEach(id => hidden[phaseByRuntime.get(id) ?? 0].push(id));
+  for (let ph = 0; ph < PHASES.length; ph++) {
+    if (!shown.has(ph) && hidden[ph].length) await api.viewer.setObjectState({ modelObjectIds: [{ modelId, objectRuntimeIds: hidden[ph] }] }, { visible: false });
+  }
+}
+
+async function refresh() {
+  [progress, history] = await Promise.all([call("/api/progress"), call("/api/history")]);
+  render();
+  await colour();
+}
+
+async function loadMeta() {
+  const m = new Map();
+  const STEP = 250;
+  for (let i = 0; i < allIds.length; i += STEP) {
+    const ids = allIds.slice(i, i + STEP);
+    const [guids, props] = await Promise.all([api.viewer.convertToObjectIds(modelId, ids), api.viewer.getObjectProperties(modelId, ids)]);
+    const byId = new Map(props.map(p => [Number(p.id), p]));
+    ids.forEach((id, j) => {
+      const p = byId.get(Number(id));
+      m.set(id, { guid: guids[j], cls: typeof p?.class === "string" ? p.class : p?.class?.name || "Unclassified", name: typeof p?.product?.name === "string" ? p.product.name : "" });
+    });
+    status(`Reading element data ${Math.min(i + STEP, allIds.length)}/${allIds.length}`);
+  }
+  meta = m;
+  guidMeta = new Map([...m.values()].map(v => [v.guid, v]));
+  classes = [...new Set([...m.values()].map(v => v.cls))].sort();
+  $("classSel").replaceChildren(...classes.map(c => el("option", { value: c }, c)));
+  $("applyClass").disabled = !classes.length;
+  openEditor(schedule.find(t => t.id === editId));
+  render();
+  status("Model loaded");
+}
+
+async function showSelection() {
+  const sel = await api.viewer.getSelection();
+  selIds = sel.filter(s => s.modelId === modelId).flatMap(s => s.objectRuntimeIds ?? []);
+  $("applySel").disabled = !selIds.length;
+  $("applySel").textContent = selIds.length > 1 ? `Apply to ${selIds.length} selected` : "Apply to selection";
+  if (!selIds.length) { $("selInfo").textContent = "Select an element in the model."; return; }
+  const [guid] = await api.viewer.convertToObjectIds(modelId, [selIds[0]]);
+  const m = guidMeta.get(guid);
+  const rec = progress[guid];
+  $("selInfo").textContent = [m?.name || m?.cls || "Element", selIds.length > 1 ? `+ ${selIds.length - 1} more selected` : "", `GUID ${guid}`,
+    rec ? `Phase: ${PHASES[rec.phase][0]}` : "No phase recorded yet.", rec ? `Recorded: ${fmt(rec.at)}` : ""].filter(Boolean).join("\n");
+  if (rec) $("phase").value = rec.phase;
+}
+
+async function waitForObjects() {
+  for (let i = 0; i < 60; i++) {
+    const all = await api.viewer.getObjects();
+    if (all[0]?.objects.length) return all;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  throw new Error("model did not load in 60 s");
+}
+
+const guard = fn => async () => { try { await fn(); } catch (e) { status("ERROR " + (e.message || e), true); } };
+
+$("applySel").onclick = guard(async () => {
+  const guids = await api.viewer.convertToObjectIds(modelId, selIds);
+  await call("/api/progress", guids.map(guid => ({ guid, phase: Number($("phase").value) })));
+  await refresh();
+  await showSelection();
+});
+
+$("applyClass").onclick = guard(async () => {
+  const cls = $("classSel").value, ph = Number($("classPhase").value);
+  const guids = [...meta.values()].filter(v => v.cls === cls).map(v => v.guid);
+  if (!confirm(`Set ${guids.length} "${cls}" elements to ${PHASES[ph][0]}?`)) return;
+  await call("/api/progress", guids.map(guid => ({ guid, phase: ph })));
+  await refresh();
+});
+
+$("tSave").onclick = guard(async () => {
+  const name = $("tName").value.trim(), start = $("tStart").value, end = $("tEnd").value, link = $("tLink").value;
+  if (!name || !start || !end || end < start) throw new Error("task needs a name, start and end (end on/after start)");
+  const cur = schedule.find(t => t.id === editId);
+  const guids = link === "keep" ? cur.guids : link === "sel" ? await api.viewer.convertToObjectIds(modelId, selIds) : [...meta.values()].filter(v => "cls:" + v.cls === link).map(v => v.guid);
+  if (!guids.length) throw new Error("nothing to link: select elements in the model or pick a type");
+  const task = { ...(cur ?? { id: "t" + Date.now() }), name, start, end, guids, deps: [...$("tDeps").selectedOptions].map(o => o.value) };
+  editId = task.id;
+  await saveSchedule(cur ? schedule.map(t => (t.id === cur.id ? task : t)) : [...schedule, task]);
+});
+
+$("tDel").onclick = guard(async () => {
+  const cur = schedule.find(t => t.id === editId);
+  if (!cur || !confirm(`Delete task "${cur.name}"?`)) return;
+  editId = null;
+  await saveSchedule(schedule.filter(t => t !== cur).map(t => ({ ...t, deps: (t.deps || []).filter(p => p !== cur.id) })));
+});
+
+$("tNew").onclick = () => { openEditor(null); $("tName").focus(); };
+$("tCancel").onclick = () => openEditor(null);
+
+const STAGES = [/footing|foundation|pile/, /column/, /wall/, /beam|member/, /slab|floor/, /roof/, /stair|railing/, /door|window/];
+$("tAuto").onclick = guard(async () => {
+  if (!meta) throw new Error("model data is still loading");
+  if (schedule.length && !confirm("Replace the current schedule with one generated from the model?")) return;
+  const byCls = new Map();
+  for (const { guid, cls } of meta.values()) byCls.set(cls, [...(byCls.get(cls) ?? []), guid]);
+  const stageOf = cls => { const i = STAGES.findIndex(re => re.test(cls.toLowerCase())); return i < 0 ? STAGES.length : i; };
+  const start = utcDay(Math.floor(Date.now() / 864e5));
+  const stages = new Map();
+  const tasks = [...byCls].sort((a, b) => a[0].localeCompare(b[0])).map(([cls, guids]) => {
+    const d = Math.max(2, Math.ceil(guids.length / 10));
+    const t = { id: "a" + cls, name: `${cls} (${guids.length})`, start, end: utcDay(day(start) + d - 1), guids, deps: [] };
+    const s = stageOf(cls);
+    stages.set(s, [...(stages.get(s) ?? []), t]);
+    return [s, t];
+  });
+  const prior = s => [...stages].filter(([k]) => k < s).sort((a, b) => b[0] - a[0])[0]?.[1] ?? [];
+  schedule = tasks.map(([s, t]) => ({ ...t, deps: prior(s).map(p => p.id) }));
+  const { nodes, t0 } = cpm();
+  await saveSchedule(schedule.map(t => { const n = nodes.get(t.id); return { ...t, start: utcDay(t0 + n.es), end: utcDay(t0 + n.ef - 1) }; }));
+});
+
+$("tApply").onclick = guard(async () => {
+  if (!schedule.length) return;
+  const { nodes, t0 } = cpm();
+  await saveSchedule(schedule.map(t => { const n = nodes.get(t.id); return { ...t, start: utcDay(t0 + n.es), end: utcDay(t0 + n.ef - 1) }; }));
+});
+
+$("seed").onclick = guard(async () => {
+  const guids = await api.viewer.convertToObjectIds(modelId, allIds.filter((_, i) => i % 3 === 0));
+  await call("/api/progress", guids.map(guid => ({ guid, phase: Math.floor(Math.random() * PHASES.length) })));
+  await refresh();
+});
+
+$("clear").onclick = guard(async () => {
+  if (!confirm("Delete all recorded progress and history?")) return;
+  await call("/api/reset", {});
+  await refresh();
+});
+
+$("export").onclick = () => {
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [["guid", "name", "type", "phase", "recorded_at"].join(",")].concat(Object.entries(progress).map(([g, r]) =>
+    [g, guidMeta.get(g)?.name, guidMeta.get(g)?.cls, PHASES[r.phase][0], r.at].map(q).join(",")));
+  const a = el("a", { href: URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })), download: "progress.csv" });
+  a.click();
+};
+
+try {
+  const list = await call("/api/projects");
+  $("projectSel").append(...list.map(p => el("option", { value: p.id, selected: p.id === PROJECT }, p.name)));
+  $("projectSel").onchange = () => { location.search = "?project=" + encodeURIComponent($("projectSel").value); };
+  schedule = await call("/api/schedule");
+  renderSchedule();
+  openEditor(null);
+  const session = await call("/api/trimble-session");
+  $("viewer").src = WS.getConnectEmbedUrl();
+  api = await WS.connect($("viewer"), ev => { if (/selection/i.test(ev)) showSelection().catch(() => {}); }, 30000);
+  await api.embed.setTokens({ shareToken: session.shareToken });
+  await api.embed.init3DViewer({ projectId: session.projectId, ...(session.modelId && { modelId: session.modelId }) });
+  status("Waiting for model...");
+  const all = await waitForObjects();
+  modelId = session.modelId || all[0].modelId;
+  allIds = all[0].objects.map(o => o.id);
+  total = allIds.length;
+  await refresh();
+  status("Reading element data...");
+  loadMeta().catch(e => status("ERROR reading element data: " + (e.message || e), true));
+} catch (e) {
+  status("ERROR " + (e.message || e), true);
+}
+</script>
+</body>
+</html>

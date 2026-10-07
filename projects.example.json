@@ -1,0 +1,9 @@
+[
+  {
+    "id": "model-1",
+    "name": "Model 1",
+    "projectId": "<trimble connect project id>",
+    "modelId": "<model id>",
+    "shareToken": "<share token>"
+  }
+]
