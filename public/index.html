@@ -236,7 +236,7 @@ function renderChips(c = counts()) {
 
 function filterChanged() {
   renderChips();
-  applyFilter().catch(e => status("ERROR " + e.message, true));
+  applyFilter(true).catch(e => status("ERROR " + e.message, true));
 }
 $("showAll").onclick = () => { PHASES.forEach((_, i) => shown.add(i)); filterChanged(); };
 
@@ -257,13 +257,13 @@ async function colour() {
   await applyFilter();
 }
 
-async function applyFilter() {
+async function applyFilter(zoom = false) {
   await api.viewer.setObjectState(undefined, { visible: "reset" });
   if (shown.size === PHASES.length) return;
   // hiding a wall also hides the doors in its openings, so isolate what's shown instead of hiding the rest
   const ids = allIds.filter(id => shown.has(phaseOf(id)));
   await api.viewer.isolateEntities([{ modelId, entityIds: ids }]);
-  if (ids.length) await api.viewer.setCamera({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, { animationTime: 400 });
+  if (zoom && ids.length) await api.viewer.setCamera({ modelObjectIds: [{ modelId, objectRuntimeIds: ids }] }, { animationTime: 400 });
 }
 
 async function refresh() {
